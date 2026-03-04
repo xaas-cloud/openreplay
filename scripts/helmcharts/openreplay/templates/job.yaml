@@ -83,7 +83,7 @@ spec:
           - name: CH_HOST
             value: "{{ .Values.global.clickhouse.chHost }}"
           - name: CH_PORT
-            value: "{{ .Values.global.clickhouse.service.webPort }}"
+            value: "{{ .Values.global.clickhouse.service.dataPort }}"
         command:
           - /bin/bash
           - -c
@@ -236,7 +236,7 @@ spec:
             error_connection=1
 
             while [ $exit_count -le 20 ];do
-              nc -zv {{.Values.global.clickhouse.chHost}} {{.Values.global.clickhouse.service.webPort}} -w 1
+              nc -zv {{.Values.global.clickhouse.chHost}} {{.Values.global.clickhouse.service.dataPort}} -w 1
               if [ $? -ne 0 ]; then
                 echo "[info] clickhouse is not up; retrying in 5 seconds"
                 sleep 4
@@ -318,14 +318,16 @@ spec:
           - name: CH_HOST
             value: "{{.Values.global.clickhouse.chHost}}"
           - name: CH_PORT
-            value: "{{.Values.global.clickhouse.service.webPort}}"
-          - name: CH_PORT_HTTP
             value: "{{.Values.global.clickhouse.service.dataPort}}"
+          - name: CH_PORT_HTTP
+            value: "{{.Values.global.clickhouse.service.webPort}}"
           - name: CH_USERNAME
             value: "{{.Values.global.clickhouse.username}}"
           - name: CH_PASSWORD
             valueFrom:
               secretKeyRef: {{- include "openreplay.secrets" (dict "key" "clickhouse-password" "ctx" .) | nindent 16 }}
+          - name: CH_USE_TLS
+            value: "{{.Values.global.clickhouse.use_tls}}"
         command:
           - /bin/bash
           - -c
@@ -336,7 +338,8 @@ spec:
             [[ "${CH_PASSWORD}" != "" ]] && {
               CH_PASSWORD="--password $CH_PASSWORD"
             }
-            ch_client=`echo clickhouse-client -h ${CH_HOST} --user ${CH_USERNAME} ${CH_PASSWORD} --port ${CH_PORT}`
+            [[ "${CH_USE_TLS}" == "true" ]] && CH_TLS_FLAGS="--secure --accept-invalid-certificate" || CH_TLS_FLAGS=""
+            ch_client=`echo clickhouse-client -h ${CH_HOST} --user ${CH_USERNAME} ${CH_PASSWORD} --port ${CH_PORT} ${CH_TLS_FLAGS}`
             echo $ch_client
             ch_version=`$ch_client -q "SELECT version()"`
             echo $ch_version |\
@@ -608,14 +611,16 @@ spec:
           - name: CH_HOST
             value: "{{.Values.global.clickhouse.chHost}}"
           - name: CH_PORT
-            value: "{{.Values.global.clickhouse.service.webPort}}"
-          - name: CH_PORT_HTTP
             value: "{{.Values.global.clickhouse.service.dataPort}}"
+          - name: CH_PORT_HTTP
+            value: "{{.Values.global.clickhouse.service.webPort}}"
           - name: CH_USERNAME
             value: "{{.Values.global.clickhouse.username}}"
           - name: CH_PASSWORD
             valueFrom:
               secretKeyRef: {{- include "openreplay.secrets" (dict "key" "clickhouse-password" "ctx" .) | nindent 16 }}
+          - name: CH_USE_TLS
+            value: "{{.Values.global.clickhouse.use_tls}}"
         command: 
         - /bin/bash
         - /opt/migrations/dbops.sh
